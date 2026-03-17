@@ -1,0 +1,346 @@
+/* ═══════════════════════════════════════════
+   GARDEN CONTAINER
+═══════════════════════════════════════════ */
+.garden {
+  position: relative;
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+  min-height: 500px;
+}
+
+/* ═══════════════════════════════════════════
+   SKY
+═══════════════════════════════════════════ */
+.garden-sky {
+  background: linear-gradient(180deg, #42A5F5 0%, #90CAF9 60%, #BBDEFB 100%);
+  padding: 18px 20px 0;
+  flex: 1;
+  position: relative;
+  min-height: 60px;
+}
+
+/* Солнце */
+.garden-sun {
+  position: absolute;
+  top: 14px;
+  right: 24px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, #FFF176, #FFD600);
+  box-shadow:
+    0 0 0 10px rgba(255,238,88,0.25),
+    0 0 0 22px rgba(255,238,88,0.12),
+    0 0 40px 8px rgba(255,214,0,0.3);
+  animation: sun-pulse 4s ease-in-out infinite;
+}
+
+@keyframes sun-pulse {
+  0%, 100% { box-shadow: 0 0 0 10px rgba(255,238,88,0.25), 0 0 0 22px rgba(255,238,88,0.12), 0 0 40px 8px rgba(255,214,0,0.3); }
+  50%       { box-shadow: 0 0 0 14px rgba(255,238,88,0.3),  0 0 0 28px rgba(255,238,88,0.14), 0 0 60px 12px rgba(255,214,0,0.4); }
+}
+
+/* Облака */
+.cloud {
+  position: absolute;
+  background: white;
+  border-radius: 50px;
+  opacity: 0.9;
+}
+.cloud::before,
+.cloud::after {
+  content: '';
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+}
+
+.cloud-1 {
+  width: 90px; height: 28px;
+  top: 20px; left: 8%;
+  animation: cloud-drift 14s ease-in-out infinite;
+}
+.cloud-1::before { width: 50px; height: 42px; top: -20px; left: 14px; }
+.cloud-1::after  { width: 36px; height: 32px; top: -14px; right: 10px; }
+
+.cloud-2 {
+  width: 70px; height: 22px;
+  top: 10px; left: 38%;
+  animation: cloud-drift 18s ease-in-out infinite reverse;
+  opacity: 0.8;
+}
+.cloud-2::before { width: 40px; height: 34px; top: -16px; left: 10px; }
+.cloud-2::after  { width: 28px; height: 26px; top: -10px; right: 8px; }
+
+.cloud-3 {
+  width: 78px; height: 24px;
+  top: 28px; right: 18%;
+  animation: cloud-drift 22s ease-in-out infinite;
+  opacity: 0.75;
+}
+.cloud-3::before { width: 44px; height: 38px; top: -18px; left: 12px; }
+.cloud-3::after  { width: 30px; height: 28px; top: -12px; right: 10px; }
+
+@keyframes cloud-drift {
+  0%, 100% { transform: translateX(0); }
+  50%       { transform: translateX(18px); }
+}
+
+/* ═══════════════════════════════════════════
+   SLOTS GRID
+═══════════════════════════════════════════ */
+.garden-slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #BBDEFB 0%, #81C784 100%);
+  position: relative;
+  z-index: 2;
+}
+
+/* ═══════════════════════════════════════════
+   GROUND
+═══════════════════════════════════════════ */
+.garden-ground {
+  background: linear-gradient(180deg, #388E3C 0%, #2E7D32 100%);
+  padding: 4px 0 10px;
+  position: relative;
+}
+
+.garden-grass-strip {
+  height: 14px;
+  background: linear-gradient(180deg, #8BC34A, #558B2F);
+  margin-bottom: 4px;
+}
+
+.garden-flowers {
+  display: flex;
+  justify-content: space-around;
+  padding: 0 12px;
+}
+
+.garden-flower {
+  font-size: 18px;
+  display: inline-block;
+  animation: flower-sway 3s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes flower-sway {
+  0%, 100% { transform: rotate(-6deg); }
+  50%       { transform: rotate(6deg); }
+}
+
+/* ═══════════════════════════════════════════
+   TREE SLOT
+═══════════════════════════════════════════ */
+.tree-slot {
+  position: relative;
+  border-radius: 16px;
+  padding: 10px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+  transition: transform 0.2s;
+  min-height: 185px;
+}
+
+.tree-slot.empty {
+  background: rgba(0,0,0,0.18);
+  border: 2px dashed rgba(255,255,255,0.2);
+}
+
+.tree-slot.filled {
+  background:
+    linear-gradient(160deg,
+      rgba(255,255,255,0.10) 0%,
+      rgba(0,0,0,0.25) 100%
+    );
+  border: 2px solid var(--rarity-color, #4CAF50);
+  box-shadow:
+    0 4px 18px rgba(0,0,0,0.3),
+    0 0 0 1px rgba(255,255,255,0.06) inset,
+    0 0 20px var(--rarity-color-dim, transparent);
+}
+
+.tree-slot.filled:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 8px 28px rgba(0,0,0,0.4),
+    0 0 24px var(--rarity-color-dim, transparent);
+}
+
+/* ── Бейдж ×количество ── */
+.slot-count-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(0,0,0,0.65);
+  color: #FFD700;
+  font-size: 0.75rem;
+  font-weight: 900;
+  padding: 2px 7px;
+  border-radius: 99px;
+  border: 1px solid rgba(255,215,0,0.4);
+  backdrop-filter: blur(4px);
+  letter-spacing: 0.3px;
+}
+
+/* ── Бейдж редкости ── */
+.rarity-pip {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 0.52rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 99px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+/* ── Картинка дерева ── */
+.slot-img-wrap {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 10px;
+  min-height: 130px;
+}
+
+.slot-tree-img {
+  max-width: 100%;
+  max-height: 140px;
+  width: 100%;
+  object-fit: contain;
+  
+}
+
+.slot-emoji {
+  font-size: 58px;
+  line-height: 1;
+}
+
+.slot-seedling {
+  font-size: 44px;
+  margin-top: 16px;
+  opacity: 0.5;
+}
+
+/* ── Тексты слота ── */
+.slot-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  white-space: nowrap;
+}
+
+.slot-name.empty-name { color: rgba(255,255,255,0.35); font-weight: 400; }
+
+.slot-income {
+  font-size: 0.68rem;
+  color: #FFD700;
+  font-weight: 700;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+.slot-income.empty-income {
+  color: rgba(255,255,255,0.2);
+  font-weight: 400;
+  font-size: 0.62rem;
+}
+
+/* ═══════════════════════════════════════════
+   АНИМАЦИИ ПО РЕДКОСТИ
+═══════════════════════════════════════════ */
+
+
+/* Редкие — лёгкое дыхание */
+.anim-rare .slot-tree-img {
+  animation: tree-breathe 2.5s ease-in-out infinite;
+}
+
+@keyframes tree-breathe {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.05); }
+}
+
+/* Эпик — пульс + свечение */
+.anim-epic .slot-tree-img {
+  animation: tree-pulse 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 10px var(--rarity-color)) drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+}
+
+@keyframes tree-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 6px var(--rarity-color))  drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
+  50%       { transform: scale(1.07); filter: drop-shadow(0 0 18px var(--rarity-color)) drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
+}
+
+/* Легендарное — золотое сияние + подпрыгивание */
+.anim-legendary .slot-tree-img {
+  animation: tree-legendary 2s ease-in-out infinite;
+  filter: drop-shadow(0 0 14px #FFD700) drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+}
+
+@keyframes tree-legendary {
+  0%, 100% { transform: scale(1) translateY(0); filter: drop-shadow(0 0 10px #FFD700) drop-shadow(0 4px 12px rgba(0,0,0,0.4)); }
+  50%       { transform: scale(1.08) translateY(-6px); filter: drop-shadow(0 0 28px #FFD700) drop-shadow(0 4px 12px rgba(0,0,0,0.4)); }
+}
+
+/* ═══════════════════════════════════════════
+   МОНЕТЫ — ЧАСТИЦЫ
+═══════════════════════════════════════════ */
+.coin-particle {
+  position: absolute;
+  pointer-events: none;
+  z-index: 50;
+  animation: coin-fly 1.3s ease-out forwards;
+  transform-origin: center;
+}
+
+@keyframes coin-fly {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  70%  { opacity: 1; transform: translateY(-70px) scale(1.3); }
+  100% { opacity: 0; transform: translateY(-110px) scale(0.8); }
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE
+═══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .garden-slots {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .tree-slot { min-height: 160px; }
+  .slot-img-wrap { min-height: 110px; }
+  .slot-tree-img { max-height: 115px; }
+
+  .slot-name { font-size: 0.68rem; }
+  .slot-income { font-size: 0.62rem; }
+  .rarity-pip { font-size: 0.46rem; }
+
+  .garden-sun { width: 44px; height: 44px; right: 12px; top: 10px; }
+  .garden-flowers { display: none; }
+
+  .cloud-1 { width: 60px; height: 18px; }
+  .cloud-2 { width: 50px; height: 16px; }
+  .cloud-3 { width: 55px; height: 18px; }
+}
