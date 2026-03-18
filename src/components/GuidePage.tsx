@@ -46,50 +46,51 @@ export function GuidePage() {
       {/* Деревья */}
       <div className="guide-section">
         <div className="guide-section-title">Деревья и редкости</div>
-        <table className="guide-table">
-          <thead>
-            <tr>
-              <th>Дерево</th>
-              <th>Редкость</th>
-              <th>Доход/ч</th>
-              <th>Стоимость</th>
-              <th>Ур.</th>
-            </tr>
-          </thead>
-          <tbody>
-            {TREES.map(t => (
-              <tr key={t.id}>
-                <td>
-                  {t.emoji} {t.name}
-                </td>
-                <td>
-                  <span style={{
-                    background: RARITY_COLORS[t.rarity],
-                    fontSize: '0.6rem',
-                    fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: 99,
-                    color: '#fff',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.3px',
-                  }}>
-                    {RARITY_LABELS[t.rarity]}
-                  </span>
-                </td>
-                <td style={{ color: '#d29922', fontWeight: 600 }}>+{fmt(t.incomePerHour)}</td>
-                <td style={{ color: '#8b949e' }}>
-                  {t.costCurrency === 'free'
-                    ? '🎁 Бесплатно'
-                    : t.costCurrency === 'hard'
-                      ? `💎 ${fmt(t.cost)}`
-                      : `🪙 ${fmt(t.cost)}`
-                  }
-                </td>
-                <td style={{ color: '#8b949e' }}>{t.unlockLevel}</td>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', margin: '0 -4px' }}>
+          <table className="guide-table" style={{ minWidth: 380 }}>
+            <thead>
+              <tr>
+                <th>Дерево</th>
+                <th>Редкость</th>
+                <th>Доход/ч</th>
+                <th>Стоимость</th>
+                <th>Ур.</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {TREES.map(t => (
+                <tr key={t.id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{t.emoji} {t.name}</td>
+                  <td>
+                    <span style={{
+                      background: RARITY_COLORS[t.rarity],
+                      fontSize: '0.6rem',
+                      fontWeight: 700,
+                      padding: '2px 7px',
+                      borderRadius: 99,
+                      color: '#fff',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {RARITY_LABELS[t.rarity]}
+                    </span>
+                  </td>
+                  <td style={{ color: '#d29922', fontWeight: 600, whiteSpace: 'nowrap' }}>+{fmt(t.incomePerHour)}</td>
+                  <td style={{ color: '#8b949e', whiteSpace: 'nowrap' }}>
+                    {t.costCurrency === 'free'
+                      ? '🎁 Бесплатно'
+                      : t.costCurrency === 'hard'
+                        ? `💎 ${fmt(t.cost)}`
+                        : `🪙 ${fmt(t.cost)}`
+                    }
+                  </td>
+                  <td style={{ color: '#8b949e' }}>{t.unlockLevel}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Уровни */}

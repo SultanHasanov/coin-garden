@@ -5,6 +5,7 @@ import { TREES, RARITY_COLORS, RARITY_LABELS, type TreeRarity } from '../data/tr
 import { TREE_IMAGES } from '../assets/treeImages'
 
 function fmt(n: number) {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B'
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
   return Math.floor(n).toString()

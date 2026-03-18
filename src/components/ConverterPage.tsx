@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { gameStore, COINS_PER_DIAMOND, DIAMONDS_PER_RUBLE } from '../stores/GameStore'
 
 function fmt(n: number) {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B'
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
   return Math.floor(n).toString()
