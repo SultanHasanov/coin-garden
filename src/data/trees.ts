@@ -19,13 +19,126 @@ export interface Tree {
   cost: number
   costCurrency: CurrencyType
   incomePerHour: number        // монет в час
-  storageCapacity: number      // сколько монет вмещает это дерево
+  storageCapacity: number      // сколько монет вмещает это дерево (0 = pure income)
+  storageType: 'normal' | 'pure' // pure = не добавляет склад, но +25% доход
   harvestIntervalHours: number // через сколько часов склад заполняется
   description: string
   fruit: string                // название плода
   imagePrompt: string          // промпт для генерации арта
   upgrades: TreeUpgradeTier[]
 }
+
+// ─── Синергии ──────────────────────────────────────────────────────────────
+export interface Synergy {
+  id: string
+  name: string
+  emoji: string
+  requiredTreeIds: string[]
+  bonusPercent: number
+  description: string
+}
+
+export const SYNERGIES: Synergy[] = [
+  {
+    id: 'orchard',
+    name: 'Фруктовый сад',
+    emoji: '🌿',
+    requiredTreeIds: ['apple', 'pear', 'cherry'],
+    bonusPercent: 15,
+    description: 'Яблоня, Груша и Вишня создают классический сад',
+  },
+  {
+    id: 'citrus',
+    name: 'Цитрусовый сад',
+    emoji: '🍊',
+    requiredTreeIds: ['orange', 'lemon'],
+    bonusPercent: 20,
+    description: 'Цитрусовые усиливают друг друга',
+  },
+  {
+    id: 'tropics',
+    name: 'Тропики',
+    emoji: '🌴',
+    requiredTreeIds: ['mango', 'coconut', 'orange'],
+    bonusPercent: 35,
+    description: 'Тропический рай приносит особый урожай',
+  },
+  {
+    id: 'chocolate',
+    name: 'Шоколадная фабрика',
+    emoji: '🍫',
+    requiredTreeIds: ['cacao', 'fig', 'pomegranate'],
+    bonusPercent: 25,
+    description: 'Редкие плоды создают сладкое богатство',
+  },
+  {
+    id: 'mystic',
+    name: 'Мистика',
+    emoji: '✨',
+    requiredTreeIds: ['dragon_fruit', 'star_fruit', 'jackfruit'],
+    bonusPercent: 50,
+    description: 'Эпические деревья объединяют магическую силу',
+  },
+  {
+    id: 'rainbow',
+    name: 'Радуга',
+    emoji: '🌈',
+    requiredTreeIds: ['rainbow_tree', 'crystal_tree', 'moon_fruit'],
+    bonusPercent: 60,
+    description: 'Легендарная радуга удесятеряет богатство',
+  },
+  {
+    id: 'legendary_garden',
+    name: 'Легендарный сад',
+    emoji: '🌟',
+    requiredTreeIds: ['golden_tree', 'moon_fruit', 'world_tree'],
+    bonusPercent: 80,
+    description: 'Три легендарных дерева максимальной мощи',
+  },
+]
+
+// ─── Соперничество деревьев ────────────────────────────────────────────────
+export interface Rivalry {
+  id: string
+  treeA: string
+  penaltyA: number // % штраф для treeA когда treeB куплено
+  treeB: string
+  penaltyB: number // % штраф для treeB когда treeA куплено
+  description: string
+}
+
+export const RIVALRIES: Rivalry[] = [
+  {
+    id: 'durian_coconut',
+    treeA: 'durian', penaltyA: 0,
+    treeB: 'coconut', penaltyB: 15,
+    description: 'Запах дуриана мешает кокосовой пальме',
+  },
+  {
+    id: 'durian_fig',
+    treeA: 'durian', penaltyA: 0,
+    treeB: 'fig', penaltyB: 10,
+    description: 'Дуриан подавляет инжир своим резким запахом',
+  },
+  {
+    id: 'lemon_orange',
+    treeA: 'lemon', penaltyA: 8,
+    treeB: 'orange', penaltyB: 8,
+    description: 'Цитрусовые конкурируют за питательные вещества',
+  },
+  {
+    id: 'golden_crystal',
+    treeA: 'golden_tree', penaltyA: 12,
+    treeB: 'crystal_tree', penaltyB: 12,
+    description: 'Золото и кристаллы борются за магическую энергию',
+  },
+  {
+    id: 'cosmic_world',
+    treeA: 'cosmic_tree', penaltyA: 0,
+    treeB: 'world_tree', penaltyB: 10,
+    description: 'Космическое дерево поглощает силу мирового',
+  },
+]
 
 function softUpgrades(inc: number): TreeUpgradeTier[] {
   return [
@@ -48,7 +161,7 @@ export const TREES: Tree[] = [
   {
     id: 'apple', name: 'Яблоня', emoji: '🍎', rarity: 'common',
     unlockLevel: 1, cost: 0, costCurrency: 'free',
-    incomePerHour: 10, storageCapacity: 80, harvestIntervalHours: 8,
+    incomePerHour: 10, storageCapacity: 80, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Твоё первое дерево. Скромный, но надёжный доход.',
     fruit: 'Яблоко',
     imagePrompt: `Cute cartoon apple tree with round red apples, game asset style,
@@ -60,7 +173,7 @@ export const TREES: Tree[] = [
   {
     id: 'pear', name: 'Груша', emoji: '🍐', rarity: 'common',
     unlockLevel: 1, cost: 500, costCurrency: 'soft',
-    incomePerHour: 28, storageCapacity: 224, harvestIntervalHours: 8,
+    incomePerHour: 28, storageCapacity: 224, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Груши зреют медленнее, но их больше.',
     fruit: 'Груша',
     imagePrompt: `Cute cartoon pear tree with golden yellow pears hanging from branches,
@@ -73,7 +186,7 @@ export const TREES: Tree[] = [
   {
     id: 'cherry', name: 'Вишня', emoji: '🍒', rarity: 'uncommon',
     unlockLevel: 3, cost: 2000, costCurrency: 'soft',
-    incomePerHour: 80, storageCapacity: 640, harvestIntervalHours: 8,
+    incomePerHour: 80, storageCapacity: 640, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Маленькие ягоды, большой доход. Вишни любят все.',
     fruit: 'Вишня',
     imagePrompt: `Adorable cartoon cherry tree covered in bright red cherries in pairs,
@@ -85,7 +198,7 @@ export const TREES: Tree[] = [
   {
     id: 'orange', name: 'Апельсин', emoji: '🍊', rarity: 'uncommon',
     unlockLevel: 5, cost: 10000, costCurrency: 'soft',
-    incomePerHour: 300, storageCapacity: 2400, harvestIntervalHours: 8,
+    incomePerHour: 300, storageCapacity: 2400, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Экзотика! Сочные апельсины ценятся дороже.',
     fruit: 'Апельсин',
     imagePrompt: `Cute cartoon orange tree with big juicy oranges, tropical feel,
@@ -97,7 +210,7 @@ export const TREES: Tree[] = [
   {
     id: 'lemon', name: 'Лимон', emoji: '🍋', rarity: 'uncommon',
     unlockLevel: 15, cost: 500_000, costCurrency: 'soft',
-    incomePerHour: 12_000, storageCapacity: 96_000, harvestIntervalHours: 8,
+    incomePerHour: 15_000, storageCapacity: 0, storageType: 'pure', harvestIntervalHours: 8,
     description: 'Кислый, но прибыльный. Лимоны всегда в цене.',
     fruit: 'Лимон',
     imagePrompt: `Cute cartoon lemon tree with bright yellow lemons, cheerful style,
@@ -109,7 +222,7 @@ export const TREES: Tree[] = [
   {
     id: 'mango', name: 'Манго', emoji: '🥭', rarity: 'rare',
     unlockLevel: 8, cost: 50000, costCurrency: 'soft',
-    incomePerHour: 1200, storageCapacity: 9600, harvestIntervalHours: 8,
+    incomePerHour: 1200, storageCapacity: 9600, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Король фруктов. Высокий доход, но требует терпения.',
     fruit: 'Манго',
     imagePrompt: `Majestic cartoon mango tree with large golden-red mangoes,
@@ -121,7 +234,7 @@ export const TREES: Tree[] = [
   {
     id: 'coconut', name: 'Кокосовая пальма', emoji: '🥥', rarity: 'rare',
     unlockLevel: 12, cost: 200000, costCurrency: 'soft',
-    incomePerHour: 4500, storageCapacity: 36000, harvestIntervalHours: 8,
+    incomePerHour: 4500, storageCapacity: 36000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Высокая пальма видит далеко. Огромный пассивный доход.',
     fruit: 'Кокос',
     imagePrompt: `Tall cute cartoon palm tree with big brown coconuts at the top,
@@ -133,7 +246,7 @@ export const TREES: Tree[] = [
   {
     id: 'fig', name: 'Инжир', emoji: '🫐', rarity: 'rare',
     unlockLevel: 17, cost: 1_500_000, costCurrency: 'soft',
-    incomePerHour: 35_000, storageCapacity: 280_000, harvestIntervalHours: 8,
+    incomePerHour: 44_000, storageCapacity: 0, storageType: 'pure', harvestIntervalHours: 8,
     description: 'Древний плод мудрости. Древние знали толк в прибыли.',
     fruit: 'Инжир',
     imagePrompt: `Cute cartoon fig tree with purple figs, ancient feel,
@@ -144,7 +257,7 @@ export const TREES: Tree[] = [
   {
     id: 'pomegranate', name: 'Гранат', emoji: '🍑', rarity: 'rare',
     unlockLevel: 20, cost: 5_000_000, costCurrency: 'soft',
-    incomePerHour: 100_000, storageCapacity: 800_000, harvestIntervalHours: 8,
+    incomePerHour: 100_000, storageCapacity: 800_000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Каждое зёрнышко — монетка. Гранат — дерево богатства.',
     fruit: 'Гранат',
     imagePrompt: `Cartoon pomegranate tree with red jewel-like fruits, lush and vibrant,
@@ -155,7 +268,7 @@ export const TREES: Tree[] = [
   {
     id: 'durian', name: 'Дуриан', emoji: '🌵', rarity: 'rare',
     unlockLevel: 25, cost: 15_000_000, costCurrency: 'soft',
-    incomePerHour: 320_000, storageCapacity: 2_560_000, harvestIntervalHours: 8,
+    incomePerHour: 400_000, storageCapacity: 0, storageType: 'pure', harvestIntervalHours: 8,
     description: 'Король фруктов Азии. Острый запах — сладкая прибыль.',
     fruit: 'Дуриан',
     imagePrompt: `Cartoon durian tree with spiky green-yellow fruits, tropical,
@@ -166,7 +279,7 @@ export const TREES: Tree[] = [
   {
     id: 'cacao', name: 'Какао', emoji: '🍫', rarity: 'rare',
     unlockLevel: 30, cost: 50_000_000, costCurrency: 'soft',
-    incomePerHour: 950_000, storageCapacity: 7_600_000, harvestIntervalHours: 8,
+    incomePerHour: 1_190_000, storageCapacity: 0, storageType: 'pure', harvestIntervalHours: 8,
     description: 'Шоколадное дерево. Буквально растёт золото.',
     fruit: 'Какао-боб',
     imagePrompt: `Cute cartoon cacao tree with large brown cacao pods, chocolate vibe,
@@ -178,7 +291,7 @@ export const TREES: Tree[] = [
   {
     id: 'dragon_fruit', name: 'Питахайя', emoji: '🐉', rarity: 'epic',
     unlockLevel: 18, cost: 500, costCurrency: 'hard',
-    incomePerHour: 18_000, storageCapacity: 144_000, harvestIntervalHours: 8,
+    incomePerHour: 18_000, storageCapacity: 144_000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Мистическое дерево. Только за золотые монеты.',
     fruit: 'Дракон-фрукт',
     imagePrompt: `Magical fantasy cactus dragon fruit plant with glowing pink exotic fruits,
@@ -191,7 +304,7 @@ export const TREES: Tree[] = [
   {
     id: 'star_fruit', name: 'Карамбола', emoji: '⭐', rarity: 'epic',
     unlockLevel: 35, cost: 2_000, costCurrency: 'hard',
-    incomePerHour: 3_000_000, storageCapacity: 24_000_000, harvestIntervalHours: 8,
+    incomePerHour: 3_750_000, storageCapacity: 0, storageType: 'pure', harvestIntervalHours: 8,
     description: 'Звёздный плод из другого измерения. Прибыль внеземная.',
     fruit: 'Карамбола',
     imagePrompt: `Magical cartoon star fruit tree with glowing star-shaped fruits,
@@ -203,7 +316,7 @@ export const TREES: Tree[] = [
   {
     id: 'jackfruit', name: 'Джекфрут', emoji: '🎋', rarity: 'epic',
     unlockLevel: 45, cost: 6_000, costCurrency: 'hard',
-    incomePerHour: 10_000_000, storageCapacity: 80_000_000, harvestIntervalHours: 8,
+    incomePerHour: 10_000_000, storageCapacity: 80_000_000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Гигантский плод силы. Один джекфрут кормит армию.',
     fruit: 'Джекфрут',
     imagePrompt: `Epic cartoon jackfruit tree with massive glowing green fruits,
@@ -215,7 +328,7 @@ export const TREES: Tree[] = [
   {
     id: 'rainbow_tree', name: 'Радужное дерево', emoji: '🌈', rarity: 'epic',
     unlockLevel: 55, cost: 15_000, costCurrency: 'hard',
-    incomePerHour: 35_000_000, storageCapacity: 280_000_000, harvestIntervalHours: 8,
+    incomePerHour: 35_000_000, storageCapacity: 280_000_000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'На конце радуги — монеты. И это буквально.',
     fruit: 'Радужный плод',
     imagePrompt: `Magical rainbow cartoon tree with colorful prismatic fruits,
@@ -228,7 +341,7 @@ export const TREES: Tree[] = [
   {
     id: 'golden_tree', name: 'Золотое дерево', emoji: '✨', rarity: 'legendary',
     unlockLevel: 40, cost: 5000, costCurrency: 'hard',
-    incomePerHour: 100_000, storageCapacity: 800_000, harvestIntervalHours: 8,
+    incomePerHour: 100_000, storageCapacity: 800_000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Легендарное дерево. Листья из золота, плоды — монеты.',
     fruit: 'Золотой плод',
     imagePrompt: `Legendary glowing golden tree with golden coin-shaped fruits,
@@ -242,7 +355,7 @@ export const TREES: Tree[] = [
   {
     id: 'moon_fruit', name: 'Лунный плод', emoji: '🌙', rarity: 'legendary',
     unlockLevel: 65, cost: 30_000, costCurrency: 'hard',
-    incomePerHour: 120_000_000, storageCapacity: 960_000_000, harvestIntervalHours: 8,
+    incomePerHour: 120_000_000, storageCapacity: 960_000_000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Растёт только при лунном свете. Доход как прилив.',
     fruit: 'Лунный плод',
     imagePrompt: `Ethereal cartoon moon tree with glowing silver-blue fruits,
@@ -254,7 +367,7 @@ export const TREES: Tree[] = [
   {
     id: 'crystal_tree', name: 'Кристальное дерево', emoji: '💠', rarity: 'legendary',
     unlockLevel: 75, cost: 60_000, costCurrency: 'hard',
-    incomePerHour: 400_000_000, storageCapacity: 3_200_000_000, harvestIntervalHours: 8,
+    incomePerHour: 400_000_000, storageCapacity: 3_200_000_000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Дерево из чистых кристаллов. Каждая ветка — алмаз.',
     fruit: 'Кристалл',
     imagePrompt: `Majestic crystal tree made entirely of glowing blue crystals,
@@ -266,7 +379,7 @@ export const TREES: Tree[] = [
   {
     id: 'cosmic_tree', name: 'Космическое дерево', emoji: '🌌', rarity: 'legendary',
     unlockLevel: 90, cost: 120_000, costCurrency: 'hard',
-    incomePerHour: 1_400_000_000, storageCapacity: 11_200_000_000, harvestIntervalHours: 8,
+    incomePerHour: 1_400_000_000, storageCapacity: 11_200_000_000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Корни в земле, крона в галактике. Доход бесконечен.',
     fruit: 'Звезда',
     imagePrompt: `Cosmic cartoon tree with galaxy inside the trunk, stars as fruits,
@@ -278,7 +391,7 @@ export const TREES: Tree[] = [
   {
     id: 'world_tree', name: 'Мировое дерево', emoji: '🌍', rarity: 'legendary',
     unlockLevel: 99, cost: 500_000, costCurrency: 'hard',
-    incomePerHour: 5_000_000_000, storageCapacity: 40_000_000_000, harvestIntervalHours: 8,
+    incomePerHour: 5_000_000_000, storageCapacity: 40_000_000_000, storageType: 'normal', harvestIntervalHours: 8,
     description: 'Иггдрасиль. Держит миры. Твой доход — всё.',
     fruit: 'Планета',
     imagePrompt: `The world tree Yggdrasil as a cute cartoon, branches holding planets,

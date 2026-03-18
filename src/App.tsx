@@ -1,21 +1,30 @@
 import { observer } from 'mobx-react-lite'
 import { useState, useRef, useEffect } from 'react'
+
+function fmt(n: number): string {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return Math.floor(n).toString()
+}
 import { Garden } from './game/Garden'
 import { HUD } from './components/HUD'
 import { ShopPage } from './components/ShopPage'
 import { ConverterPage } from './components/ConverterPage'
+import { MarketPage } from './components/MarketPage'
 import { GuidePage } from './components/GuidePage'
 import { AchievementsPage } from './components/AchievementsPage'
 import { gameStore } from './stores/GameStore'
 import type { Achievement } from './data/achievements'
 import './App.css'
 
-export type Page = 'garden' | 'shop' | 'converter' | 'guide' | 'achievements'
+export type Page = 'garden' | 'shop' | 'converter' | 'market' | 'guide' | 'achievements'
 
 const NAV = [
   { id: 'garden',       icon: '🌱', label: 'Сад'       },
   { id: 'shop',         icon: '🛒', label: 'Магазин'   },
   { id: 'converter',    icon: '💱', label: 'Обменник'  },
+  { id: 'market',       icon: '🏪', label: 'Рынок'     },
   { id: 'achievements', icon: '🏆', label: 'Успехи'    },
   { id: 'guide',        icon: '📖', label: 'Гайд'      },
 ] as const
@@ -42,6 +51,14 @@ let toastId = 0
 const App = observer(function App() {
   const [page, setPage] = useState<Page>('garden')
   const [tgUser] = useState<TgUser | null>(() => getTelegramUser())
+
+  // Инициализация API-синхронизации при наличии Telegram-пользователя
+  useEffect(() => {
+    if (tgUser) {
+      const name = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ')
+      gameStore.initFromApi(tgUser.id, name)
+    }
+  }, []) // eslint-disable-line
   const [toasts, setToasts] = useState<Toast[]>([])
 
   // Secret tap counter
@@ -85,25 +102,42 @@ const App = observer(function App() {
   return (
     <div className="app-root">
       <header className="app-header">
-        <div className="app-brand" onClick={handleBrandTap} style={{ cursor: 'default', userSelect: 'none' }}>
-          <span className="app-brand-icon">🌳</span>
-          <span className="app-brand-name">Coin Garden</span>
+        <div className="app-header-top">
+          <div className="app-brand" onClick={handleBrandTap} style={{ cursor: 'default', userSelect: 'none' }}>
+            <span className="app-brand-icon">🌳</span>
+            <span className="app-brand-name">Coin Garden</span>
+          </div>
+
+          {tgUser && (
+            <div className="tg-user">
+              {tgUser.photo_url && <img className="tg-user-avatar" src={tgUser.photo_url} alt="" />}
+              <span className="tg-user-name">
+                {tgUser.first_name}{tgUser.last_name ? ' ' + tgUser.last_name : ''}
+              </span>
+            </div>
+          )}
         </div>
 
-        {tgUser && (
-          <div className="tg-user">
-            {tgUser.photo_url && <img className="tg-user-avatar" src={tgUser.photo_url} alt="" />}
-            <span className="tg-user-name">
-              {tgUser.first_name}{tgUser.last_name ? ' ' + tgUser.last_name : ''}
-            </span>
-          </div>
-        )}
+        {(() => {
+          const coinsNeeded = gameStore.level * 1000
+          const coinsProgress = Math.min(gameStore.coins / coinsNeeded, 1)
+          return (
+            <div className="app-level-bar">
+              <span className="app-level-label">Ур. {gameStore.level}</span>
+              <div className="app-level-track">
+                <div className="app-level-fill" style={{ width: `${coinsProgress * 100}%` }} />
+              </div>
+              <span className="app-level-coins">{fmt(gameStore.coins)} / {fmt(coinsNeeded)}</span>
+            </div>
+          )
+        })()}
       </header>
 
       <main className="app-main">
         {page === 'garden'       && <Garden />}
         {page === 'shop'         && <ShopPage />}
         {page === 'converter'    && <ConverterPage />}
+        {page === 'market'       && <MarketPage />}
         {page === 'achievements' && <AchievementsPage />}
         {page === 'guide'        && <GuidePage />}
       </main>

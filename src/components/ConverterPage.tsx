@@ -1,5 +1,5 @@
 import { observer } from 'mobx-react-lite'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { gameStore, COINS_PER_DIAMOND, DIAMONDS_PER_RUBLE } from '../stores/GameStore'
 
 function fmt(n: number) {
@@ -9,6 +9,45 @@ function fmt(n: number) {
   return Math.floor(n).toString()
 }
 
+function useAnimatedNumber(target: number) {
+  const [displayed, setDisplayed] = useState(target)
+  const ref = useRef({ cur: target, target })
+  const rafRef = useRef<number>(0)
+  const prevTarget = useRef(target)
+
+  useEffect(() => {
+    const prev = prevTarget.current
+    prevTarget.current = target
+    if (target < prev * 0.5 && prev - target > 10) {
+      ref.current.cur = target
+      ref.current.target = target
+      setDisplayed(target)
+    } else {
+      ref.current.target = target
+    }
+  }, [target])
+
+  useEffect(() => {
+    let last = performance.now()
+    function tick(now: number) {
+      const dt = Math.min(now - last, 50)
+      last = now
+      const { cur, target } = ref.current
+      const diff = target - cur
+      if (Math.abs(diff) > 0.5) {
+        const next = cur + diff * (1 - Math.exp(-dt / 120))
+        ref.current.cur = next
+        setDisplayed(next)
+      }
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, []) // eslint-disable-line
+
+  return displayed
+}
+
 type Flash = { msg: string; ok: boolean } | null
 
 export const ConverterPage = observer(function ConverterPage() {
@@ -16,6 +55,10 @@ export const ConverterPage = observer(function ConverterPage() {
   const [rubInput,  setRubInput]    = useState('')
   const [rubToCoinsInput, setRubToCoinsInput] = useState('')
   const [flash, setFlash] = useState<Flash>(null)
+
+  const animCoins   = useAnimatedNumber(gameStore.coins)
+  const animDiamonds = useAnimatedNumber(gameStore.goldCoins)
+  const animIncome  = useAnimatedNumber(gameStore.totalIncomePerHour)
 
   function showFlash(msg: string, ok: boolean) {
     setFlash({ msg, ok })
@@ -55,20 +98,56 @@ export const ConverterPage = observer(function ConverterPage() {
     <div className="conv-page">
       <div className="page-title">💱 Обменник</div>
 
+      {/* Статы */}
+      <div className="conv-stats-row">
+        <div className="conv-stat-chip">
+          <span className="conv-stat-icon">📈</span>
+          <div>
+            <div className="conv-stat-label">Доход/ч</div>
+            <div className="conv-stat-val">+{fmt(animIncome)}</div>
+          </div>
+        </div>
+        <div className="conv-stat-chip">
+          <span className="conv-stat-icon">🌱</span>
+          <div>
+            <div className="conv-stat-label">Деревьев</div>
+            <div className="conv-stat-val">{gameStore.ownedTrees.reduce((s, t) => s + t.count, 0)}</div>
+          </div>
+        </div>
+        {gameStore.fertilizerCount > 0 && (
+          <div className="conv-stat-chip">
+            <span className="conv-stat-icon">🌿</span>
+            <div>
+              <div className="conv-stat-label">Удобрения</div>
+              <div className="conv-stat-val">{gameStore.fertilizerCount}</div>
+            </div>
+          </div>
+        )}
+        {gameStore.seasonNumber > 1 && (
+          <div className="conv-stat-chip">
+            <span className="conv-stat-icon">🌸</span>
+            <div>
+              <div className="conv-stat-label">Сезон</div>
+              <div className="conv-stat-val">{gameStore.seasonNumber}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Балансы */}
       <div className="conv-balances">
         <div className="conv-bal-card">
           <span className="conv-bal-icon">🪙</span>
           <div>
             <div className="conv-bal-label">Монеты</div>
-            <div className="conv-bal-value">{fmt(gameStore.coins)}</div>
+            <div className="conv-bal-value conv-bal-animated">{fmt(animCoins)}</div>
           </div>
         </div>
         <div className="conv-bal-card">
           <span className="conv-bal-icon">💎</span>
           <div>
             <div className="conv-bal-label">Алмазы</div>
-            <div className="conv-bal-value">{fmt(gameStore.goldCoins)}</div>
+            <div className="conv-bal-value conv-bal-animated">{fmt(animDiamonds)}</div>
           </div>
         </div>
         <div className="conv-bal-card">

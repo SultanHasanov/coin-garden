@@ -1,7 +1,7 @@
 import { observer } from 'mobx-react-lite'
 import { useState } from 'react'
 import { gameStore } from '../stores/GameStore'
-import { TREES, RARITY_COLORS, RARITY_LABELS, type TreeRarity } from '../data/trees'
+import { TREES, RIVALRIES, RARITY_COLORS, RARITY_LABELS, type TreeRarity } from '../data/trees'
 import { TREE_IMAGES } from '../assets/treeImages'
 
 function fmt(n: number) {
@@ -59,6 +59,14 @@ export const ShopPage = observer(function ShopPage() {
           const unlocked = gameStore.isUnlocked(tree.id)
           const afford   = gameStore.canAfford(tree.id)
           const rc       = RARITY_COLORS[tree.rarity as TreeRarity]
+          const isPure   = tree.storageType === 'pure'
+
+          // Проверяем соперничество с уже купленными деревьями
+          const rivalries = RIVALRIES.filter(r =>
+            (r.treeA === tree.id && gameStore.treeCount(r.treeB) > 0) ||
+            (r.treeB === tree.id && gameStore.treeCount(r.treeA) > 0)
+          )
+          const hasRivalry = rivalries.length > 0
 
           return (
             <div
@@ -69,6 +77,10 @@ export const ShopPage = observer(function ShopPage() {
               <div className="rarity-badge" style={{ background: rc }}>
                 {RARITY_LABELS[tree.rarity as TreeRarity]}
               </div>
+
+              {isPure && unlocked && (
+                <div className="pure-income-badge">⚡ Без склада</div>
+              )}
 
               <div className="shop-tree-img-wrap">
                 {TREE_IMAGES[tree.id] ? (
@@ -88,10 +100,23 @@ export const ShopPage = observer(function ShopPage() {
               {unlocked ? (
                 <div className="shop-tree-stats">
                   <span>📈 {fmt(tree.incomePerHour)}/час</span>
-                  <span>📦 +{fmt(tree.storageCapacity)} склад</span>
+                  {isPure
+                    ? <span style={{ color: '#f0883e' }}>⚡ Не расширяет склад</span>
+                    : <span>📦 +{fmt(tree.storageCapacity)} склад</span>
+                  }
                 </div>
               ) : (
                 <div className="locked-label">Открывается на ур. {tree.unlockLevel}</div>
+              )}
+
+              {hasRivalry && unlocked && (
+                <div className="rivalry-warning">
+                  ⚔️ {rivalries.map(r => {
+                    const rivalId = r.treeA === tree.id ? r.treeB : r.treeA
+                    const rival = TREES.find(t => t.id === rivalId)
+                    return rival?.name
+                  }).join(', ')} — конфликт
+                </div>
               )}
 
               {owned > 0 && <div className="owned-badge">У тебя: {owned} шт.</div>}

@@ -29,14 +29,55 @@ body {
 /* ── Header ── */
 .app-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px 10px;
   border-bottom: 1px solid #21262d;
   background: #0d1117;
   position: sticky;
   top: 0;
   z-index: 50;
+}
+
+.app-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-level-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-level-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #2ea043;
+  white-space: nowrap;
+  min-width: 38px;
+}
+
+.app-level-track {
+  flex: 1;
+  height: 5px;
+  background: #21262d;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.app-level-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2ea043, #3fb950);
+  border-radius: 99px;
+  transition: width 0.6s ease;
+}
+
+.app-level-coins {
+  font-size: 0.62rem;
+  color: #484f58;
+  white-space: nowrap;
 }
 
 .app-brand {
@@ -675,6 +716,46 @@ body {
 }
 
 /* ── CONVERTER PAGE ── */
+.conv-stats-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.conv-stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 10px;
+  padding: 8px 12px;
+  flex: 1;
+  min-width: 80px;
+}
+
+.conv-stat-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.conv-stat-label {
+  font-size: 0.58rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.conv-stat-val {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f0f6fc;
+}
+
+.conv-bal-animated {
+  transition: color 0.2s;
+}
+
 .conv-page {
   display: flex;
   flex-direction: column;
@@ -1309,8 +1390,8 @@ body {
 /* ── Tree boost badge ── */
 .tree-boost-badge {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  top: 24px;
+  right: 6px;
   font-size: 0.7rem;
   font-weight: 900;
   color: #000;
@@ -1550,3 +1631,590 @@ body {
 .toast-icon { font-size: 1.4rem; }
 .toast-title { font-size: 0.65rem; color: #ffd700; font-weight: 700; text-transform: uppercase; }
 .toast-name  { font-size: 0.82rem; color: #e2e8f0; font-weight: 600; }
+
+/* ── Precision Harvest ── */
+.harvest-btn.precision {
+  background: linear-gradient(135deg, #d29922, #ffd700);
+  color: #0d1117;
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.45);
+  animation: precision-pulse 1.4s ease-in-out infinite;
+}
+.harvest-btn.precision:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e3b341, #ffe066);
+}
+@keyframes precision-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.4); }
+  50%       { box-shadow: 0 0 22px rgba(255, 215, 0, 0.75); }
+}
+
+/* ── HUD Fertilizer ── */
+.hud-fertilizer {
+  background: rgba(46, 160, 67, 0.08);
+  border-color: rgba(46, 160, 67, 0.3);
+}
+
+/* ── Season Banner ── */
+.season-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(210, 153, 34, 0.1);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #e3b341;
+  margin-bottom: 10px;
+}
+
+/* ── Synergies Panel ── */
+.synergies-panel {
+  background: rgba(46, 160, 67, 0.06);
+  border: 1px solid rgba(46, 160, 67, 0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.synergies-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #2ea043;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 7px;
+}
+.synergies-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.synergy-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(46, 160, 67, 0.12);
+  border: 1px solid rgba(46, 160, 67, 0.3);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+}
+.synergy-chip-name {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+.synergy-chip-bonus {
+  color: #2ea043;
+  font-weight: 700;
+}
+
+/* ── Rivalries Panel ── */
+.rivalries-panel {
+  background: rgba(248, 81, 73, 0.06);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.rivalries-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f85149;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 7px;
+}
+.rivalries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rivalry-chip {
+  font-size: 0.75rem;
+  color: #ffa198;
+  padding: 2px 0;
+}
+
+/* ── TreeCard Badges ── */
+.tree-rivalry-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 0.75rem;
+  line-height: 1;
+  z-index: 2;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7));
+}
+.tree-pure-badge {
+  position: absolute;
+  top: 6px;
+  right: 30px;
+  font-size: 0.7rem;
+  background: rgba(210, 153, 34, 0.25);
+  border: 1px solid rgba(210, 153, 34, 0.5);
+  border-radius: 4px;
+  padding: 1px 4px;
+  color: #e3b341;
+  font-weight: 700;
+  z-index: 2;
+}
+.tree-enhancement-badge {
+  font-size: 0.65rem;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+/* ── Prestige Button ── */
+.prestige-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(210, 153, 34, 0.15), rgba(255, 182, 193, 0.1));
+  border: 1px solid rgba(210, 153, 34, 0.4);
+  border-radius: 12px;
+  color: #e3b341;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.prestige-btn:hover {
+  background: linear-gradient(135deg, rgba(210, 153, 34, 0.25), rgba(255, 182, 193, 0.15));
+  box-shadow: 0 0 14px rgba(210, 153, 34, 0.25);
+}
+.prestige-btn-hint {
+  font-size: 0.68rem;
+  color: #8b949e;
+  font-weight: 400;
+}
+
+/* ── Prestige Modal ── */
+.prestige-modal { gap: 14px; }
+.prestige-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.prestige-reward {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(46, 160, 67, 0.08);
+  border: 1px solid rgba(46, 160, 67, 0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.prestige-reward-icon { font-size: 1.4rem; }
+.prestige-warning {
+  font-size: 0.8rem;
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 600;
+}
+.prestige-confirm-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #d29922, #ffd700);
+  border: none;
+  border-radius: 10px;
+  color: #0d1117;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.prestige-confirm-btn:hover { opacity: 0.9; }
+
+/* ── Fertilizer Section (UpgradeModal) ── */
+.fertilizer-section {
+  background: rgba(46, 160, 67, 0.06);
+  border: 1px solid rgba(46, 160, 67, 0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fertilizer-level {
+  font-size: 0.8rem;
+  color: #e2e8f0;
+}
+.fertilize-btn {
+  padding: 8px 12px;
+  background: rgba(46, 160, 67, 0.2);
+  border: 1px solid rgba(46, 160, 67, 0.4);
+  border-radius: 8px;
+  color: #3fb950;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.fertilize-btn:hover {
+  background: rgba(46, 160, 67, 0.32);
+}
+
+/* ── Shop: Pure Income Badge ── */
+.pure-income-badge {
+  position: absolute;
+  top: 28px;
+  right: 6px;
+  background: rgba(210, 153, 34, 0.2);
+  border: 1px solid rgba(210, 153, 34, 0.45);
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #e3b341;
+  z-index: 1;
+}
+
+/* ── MARKET PAGE ── */
+.mkt-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mkt-balance {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.mkt-balance-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.mkt-balance-label {
+  font-size: 0.62rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.mkt-balance-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f0f6fc;
+}
+
+.mkt-flash {
+  background: rgba(46, 160, 67, 0.12);
+  border: 1px solid rgba(46, 160, 67, 0.3);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2ea043;
+  text-align: center;
+  animation: flash-in 0.2s ease;
+}
+.mkt-flash.err {
+  background: rgba(248, 81, 73, 0.1);
+  border-color: rgba(248, 81, 73, 0.3);
+  color: #f85149;
+}
+
+/* Табы */
+.mkt-tabs {
+  display: flex;
+  gap: 6px;
+}
+.mkt-tab {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #21262d;
+  background: transparent;
+  color: #8b949e;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.mkt-tab:hover { color: #e2e8f0; border-color: #30363d; }
+.mkt-tab.active {
+  background: rgba(46, 160, 67, 0.12);
+  border-color: rgba(46, 160, 67, 0.4);
+  color: #2ea043;
+}
+.mkt-tab-count {
+  background: #2ea043;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 99px;
+}
+
+/* Список */
+.mkt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mkt-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+.mkt-list-count {
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+.mkt-refresh {
+  background: transparent;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  color: #8b949e;
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mkt-refresh:hover:not(:disabled) { color: #e2e8f0; border-color: #30363d; }
+.mkt-refresh:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Карточка листинга */
+.mkt-card {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s;
+}
+.mkt-card:hover { border-color: #30363d; }
+
+.mkt-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.mkt-card-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.mkt-card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.mkt-card-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+.mkt-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mkt-card-count {
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+.mkt-stars {
+  font-size: 0.7rem;
+  color: #d29922;
+  letter-spacing: 1px;
+}
+.mkt-card-income {
+  font-size: 0.7rem;
+  color: #2ea043;
+  font-weight: 600;
+}
+.mkt-card-right {
+  text-align: right;
+  flex-shrink: 0;
+}
+.mkt-card-price {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #f0f6fc;
+}
+.mkt-card-seller {
+  font-size: 0.65rem;
+  color: #484f58;
+  margin-top: 2px;
+}
+
+/* Кнопки листинга */
+.mkt-btn {
+  width: 100%;
+  padding: 9px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mkt-btn--buy {
+  background: #2ea043;
+  color: #fff;
+}
+.mkt-btn--buy:hover:not(:disabled) { background: #3fb950; }
+.mkt-btn--buy.disabled,
+.mkt-btn--buy:disabled {
+  background: #21262d;
+  color: #484f58;
+  cursor: not-allowed;
+}
+.mkt-btn--cancel {
+  background: rgba(248, 81, 73, 0.12);
+  color: #f85149;
+  border: 1px solid rgba(248, 81, 73, 0.3);
+}
+.mkt-btn--cancel:hover { background: rgba(248, 81, 73, 0.2); }
+.mkt-btn--submit {
+  background: #2ea043;
+  color: #fff;
+  margin-top: 4px;
+}
+.mkt-btn--submit:hover:not(:disabled) { background: #3fb950; }
+.mkt-btn--submit:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+
+/* Форма продажи */
+.mkt-sell-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mkt-sell-form {
+  background: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mkt-sell-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+.mkt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mkt-field label {
+  font-size: 0.68rem;
+  color: #8b949e;
+}
+.mkt-field-hint {
+  font-size: 0.65rem;
+  color: #484f58;
+}
+.mkt-select,
+.mkt-input {
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #e2e8f0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.mkt-select:focus,
+.mkt-input:focus { border-color: #2ea043; }
+.mkt-select:disabled,
+.mkt-input:disabled { opacity: 0.4; cursor: not-allowed; }
+.mkt-select option { background: #0d1117; }
+.mkt-input::-webkit-inner-spin-button { opacity: 0.3; }
+
+.mkt-selected-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(46, 160, 67, 0.06);
+  border: 1px solid rgba(46, 160, 67, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+.mkt-selected-income {
+  font-size: 0.7rem;
+  color: #2ea043;
+  margin-left: auto;
+}
+
+.mkt-error {
+  font-size: 0.78rem;
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+
+.mkt-my-title {
+  font-size: 0.72rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  padding: 4px 0;
+}
+
+.mkt-empty {
+  text-align: center;
+  color: #484f58;
+  font-size: 0.82rem;
+  padding: 24px 0;
+}
+
+/* Нет авторизации */
+.mkt-no-auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 16px;
+  text-align: center;
+}
+.mkt-no-auth-icon { font-size: 2.5rem; }
+.mkt-no-auth-text {
+  font-size: 0.85rem;
+  color: #8b949e;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+/* ── Shop: Rivalry Warning ── */
+.rivalry-warning {
+  font-size: 0.72rem;
+  color: #ffa198;
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin-top: 2px;
+}

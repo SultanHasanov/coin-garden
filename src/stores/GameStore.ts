@@ -1,6 +1,15 @@
-import { makeAutoObservable, action } from 'mobx'
-import { TREES, getTreeById } from '../data/trees'
+import { makeAutoObservable, action, runInAction } from 'mobx'
+import { TREES, SYNERGIES, RIVALRIES, getTreeById } from '../data/trees'
 import { ACHIEVEMENTS, type AchievementCheck } from '../data/achievements'
+import {
+  getPlayer,
+  createPlayer,
+  patchPlayer,
+  creditSellerRubles,
+  postListing,
+  deleteListing,
+  type MarketListing,
+} from '../services/api'
 
 export interface OwnedTree {
   treeId: string
@@ -25,9 +34,8 @@ export interface WeatherEvent {
 const SAVE_KEY = 'coin_garden_save'
 const TICK_MS = 1000
 
-// Курсы обмена
-export const COINS_PER_DIAMOND = 1000   // 1000 монет = 1 алмаз
-export const DIAMONDS_PER_RUBLE = 100   // 100 алмазов = 1 рубль
+export const COINS_PER_DIAMOND = 1000
+export const DIAMONDS_PER_RUBLE = 100
 
 const WEATHER_EVENTS: Omit<WeatherEvent, 'expiresAt'>[] = [
   { type: 'sunny', label: 'Солнечно',  emoji: '☀️',  multiplier: 1.3 },
@@ -57,20 +65,29 @@ class GameStore {
   lastTickTime = Date.now()
   shopOpen = false
 
-  // Бусты деревьев
   treeBoosts: ActiveBoost[] = []
 
-  // Погода
   activeWeatherEvent: WeatherEvent | null = null
   private lastWeatherCheck = 0
 
-  // Ежедневный бонус
   dailyStreak = 0
   lastDailyClaimDate = ''
 
-  // Достижения
   claimedAchievements: string[] = []
   totalHarvested = 0
+
+  fertilizerCount = 0
+  treeEnhancements: Record<string, number> = {}
+  seasonNumber = 1
+  permanentBonus = 0
+
+  // ── API-поля ──────────────────────────────────────────────────────────────
+  telegramId: number | null = null
+  playerName = ''
+  playerRecordId: number | null = null
+  apiSynced = false
+
+  private apiSaveTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
     makeAutoObservable(this)
@@ -86,13 +103,23 @@ class GameStore {
       ? this.activeWeatherEvent.multiplier
       : 1
 
-    return this.ownedTrees.reduce((sum, ot) => {
+    const synergyBonus = this.activeSynergies.reduce((sum, s) => sum + s.bonusPercent, 0)
+    const synergyMult = 1 + synergyBonus / 100
+    const permanentMult = 1 + this.permanentBonus
+
+    const base = this.ownedTrees.reduce((sum, ot) => {
       const tree = getTreeById(ot.treeId)
       if (!tree) return sum
       const boost = this.treeBoosts.find(b => b.treeId === ot.treeId && b.expiresAt > now)
       const boostMult = boost ? boost.multiplier : 1
-      return sum + tree.incomePerHour * ot.count * boostMult
-    }, 0) * weatherMult
+      const enhancement = this.treeEnhancements[ot.treeId] ?? 0
+      const enhanceMult = 1 + enhancement * 0.1
+      const rivalryPenalty = this.getRivalryPenalty(ot.treeId)
+      const rivalryMult = 1 - rivalryPenalty / 100
+      return sum + tree.incomePerHour * ot.count * boostMult * enhanceMult * rivalryMult
+    }, 0)
+
+    return base * weatherMult * synergyMult * permanentMult
   }
 
   get incomePerSecond(): number {
@@ -116,9 +143,32 @@ class GameStore {
     return this.lastDailyClaimDate !== today
   }
 
+  get isPrecisionZone(): boolean {
+    return this.storagePercent >= 0.80 && this.storagePercent < 0.95
+  }
+
+  get activeSynergies() {
+    const ownedIds = new Set(this.ownedTrees.map(ot => ot.treeId))
+    return SYNERGIES.filter(s => s.requiredTreeIds.every(id => ownedIds.has(id)))
+  }
+
   getActiveBoost(treeId: string): ActiveBoost | null {
     const now = Date.now()
     return this.treeBoosts.find(b => b.treeId === treeId && b.expiresAt > now) ?? null
+  }
+
+  getRivalryPenalty(treeId: string): number {
+    const ownedIds = new Set(this.ownedTrees.map(ot => ot.treeId))
+    return RIVALRIES.reduce((penalty, r) => {
+      if (r.treeA === treeId && ownedIds.has(r.treeB)) return penalty + r.penaltyA
+      if (r.treeB === treeId && ownedIds.has(r.treeA)) return penalty + r.penaltyB
+      return penalty
+    }, 0)
+  }
+
+  get activeRivalries() {
+    const ownedIds = new Set(this.ownedTrees.map(ot => ot.treeId))
+    return RIVALRIES.filter(r => ownedIds.has(r.treeA) && ownedIds.has(r.treeB))
   }
 
   // ─── Тик ───────────────────────────────────────────────────────────────────
@@ -126,8 +176,13 @@ class GameStore {
   startTicking() {
     setInterval(action(() => {
       this.tick()
-      this.save()
+      this.saveLocal() // только localStorage, чтобы не спамить API каждую секунду
     }), TICK_MS)
+
+    // Фоновая синхронизация с API раз в 60 секунд
+    setInterval(() => {
+      if (this.telegramId) this.performApiSave()
+    }, 60_000)
   }
 
   tick() {
@@ -143,8 +198,6 @@ class GameStore {
     this.checkAchievements()
   }
 
-  // ─── Оффлайн доход ─────────────────────────────────────────────────────────
-
   applyOfflineEarnings() {
     const now = Date.now()
     const deltaSeconds = (now - this.lastTickTime) / 1000
@@ -159,15 +212,24 @@ class GameStore {
 
   // ─── Сбор урожая ───────────────────────────────────────────────────────────
 
-  harvest() {
-    if (!this.canHarvest) return 0
-    const amount = Math.floor(this.storageUsed)
+  harvest(): { amount: number; precision: boolean; fertilizerDrop: boolean } {
+    if (!this.canHarvest) return { amount: 0, precision: false, fertilizerDrop: false }
+
+    const precision = this.isPrecisionZone
+    let amount = Math.floor(this.storageUsed)
+    if (precision) amount = Math.floor(amount * 1.2)
+
+    const fertChance = precision ? 0.16 : 0.08
+    const fertilizerDrop = Math.random() < fertChance
+    if (fertilizerDrop) this.fertilizerCount++
+
     this.coins += amount
     this.storageUsed = 0
     this.totalHarvested++
     this.checkLevelUp()
     this.checkAchievements()
-    return amount
+    this.save()
+    return { amount, precision, fertilizerDrop }
   }
 
   // ─── Покупка дерева ────────────────────────────────────────────────────────
@@ -179,18 +241,21 @@ class GameStore {
     if (tree.costCurrency === 'free') {
       this.addOwnedTree(treeId)
       this.checkAchievements()
+      this.save()
       return true
     }
     if (tree.costCurrency === 'soft' && this.coins >= tree.cost) {
       this.coins -= tree.cost
       this.addOwnedTree(treeId)
       this.checkAchievements()
+      this.save()
       return true
     }
     if (tree.costCurrency === 'hard' && this.goldCoins >= tree.cost) {
       this.goldCoins -= tree.cost
       this.addOwnedTree(treeId)
       this.checkAchievements()
+      this.save()
       return true
     }
     return false
@@ -226,6 +291,23 @@ class GameStore {
     if (tree) this.storageCapacity += tree.storageCapacity
   }
 
+  // ─── Удобрение ─────────────────────────────────────────────────────────────
+
+  fertilizeTree(treeId: string): boolean {
+    if (this.fertilizerCount <= 0) return false
+    const current = this.treeEnhancements[treeId] ?? 0
+    if (current >= 5) return false
+    this.fertilizerCount--
+    this.treeEnhancements = { ...this.treeEnhancements, [treeId]: current + 1 }
+    this.checkAchievements()
+    this.save()
+    return true
+  }
+
+  getTreeEnhancement(treeId: string): number {
+    return this.treeEnhancements[treeId] ?? 0
+  }
+
   // ─── Апгрейд деревьев ──────────────────────────────────────────────────────
 
   upgradeTree(treeId: string, tier: 'bronze' | 'silver' | 'gold'): boolean {
@@ -234,11 +316,9 @@ class GameStore {
     const tierDef = tree.upgrades.find(u => u.tier === tier)
     if (!tierDef) return false
 
-    // Проверяем, нет ли активного буста
     const existing = this.getActiveBoost(treeId)
     if (existing) return false
 
-    // Списываем стоимость
     if (tierDef.costCurrency === 'soft' && this.coins < tierDef.cost) return false
     if (tierDef.costCurrency === 'hard' && this.goldCoins < tierDef.cost) return false
 
@@ -269,7 +349,7 @@ class GameStore {
     if (before !== this.treeBoosts.length) this.save()
   }
 
-  // ─── Уровень игрока ────────────────────────────────────────────────────────
+  // ─── Уровень ───────────────────────────────────────────────────────────────
 
   private checkLevelUp() {
     const nextLevelCoins = this.level * 1000
@@ -301,6 +381,38 @@ class GameStore {
     return reward
   }
 
+  // ─── Сезонный престиж ─────────────────────────────────────────────────────
+
+  startNewSeason() {
+    const savedGoldCoins = this.goldCoins
+    const newSeasonNumber = this.seasonNumber + 1
+    const newPermanentBonus = Math.min(this.permanentBonus + 0.05, 0.50)
+
+    this.coins = 50
+    this.goldCoins = savedGoldCoins
+    this.rubles = 0
+    this.level = 1
+    this.ownedTrees = []
+    this.storageUsed = 0
+    this.storageCapacity = 200
+    this.lastTickTime = Date.now()
+    this.treeBoosts = []
+    this.activeWeatherEvent = null
+    this.dailyStreak = 0
+    this.lastDailyClaimDate = ''
+    this.claimedAchievements = []
+    this.totalHarvested = 0
+    this.fertilizerCount = 0
+    this.treeEnhancements = {}
+
+    this.seasonNumber = newSeasonNumber
+    this.permanentBonus = newPermanentBonus
+
+    this.addOwnedTree('apple')
+    this.checkAchievements()
+    this.save()
+  }
+
   // ─── Достижения ────────────────────────────────────────────────────────────
 
   private checkAchievements() {
@@ -312,6 +424,9 @@ class GameStore {
       treeBoosts: this.treeBoosts,
       dailyStreak: this.dailyStreak,
       totalHarvested: this.totalHarvested,
+      fertilizerCount: this.fertilizerCount,
+      activeSynergiesCount: this.activeSynergies.length,
+      seasonNumber: this.seasonNumber,
     }
     for (const ach of ACHIEVEMENTS) {
       if (this.claimedAchievements.includes(ach.id)) continue
@@ -324,7 +439,7 @@ class GameStore {
     }
   }
 
-  // ─── Погодные события ──────────────────────────────────────────────────────
+  // ─── Погода ────────────────────────────────────────────────────────────────
 
   private tickWeather() {
     const now = Date.now()
@@ -353,23 +468,75 @@ class GameStore {
 
   // ─── Сохранение / загрузка ─────────────────────────────────────────────────
 
-  save() {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
+  private getStateSnapshot() {
+    return {
       coins: this.coins,
       goldCoins: this.goldCoins,
       rubles: this.rubles,
       level: this.level,
-      ownedTrees: this.ownedTrees,
+      ownedTrees: this.ownedTrees.slice(),
       storageUsed: this.storageUsed,
       storageCapacity: this.storageCapacity,
       lastTickTime: Date.now(),
-      treeBoosts: this.treeBoosts,
+      treeBoosts: this.treeBoosts.slice(),
       activeWeatherEvent: this.activeWeatherEvent,
       dailyStreak: this.dailyStreak,
       lastDailyClaimDate: this.lastDailyClaimDate,
-      claimedAchievements: this.claimedAchievements,
+      claimedAchievements: this.claimedAchievements.slice(),
       totalHarvested: this.totalHarvested,
-    }))
+      fertilizerCount: this.fertilizerCount,
+      treeEnhancements: { ...this.treeEnhancements },
+      seasonNumber: this.seasonNumber,
+      permanentBonus: this.permanentBonus,
+    }
+  }
+
+  saveLocal() {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(this.getStateSnapshot()))
+  }
+
+  /** Сохраняет в localStorage + планирует отправку в API (дебаунс 3с) */
+  save() {
+    this.saveLocal()
+    if (this.telegramId) this.scheduleApiSave()
+  }
+
+  private scheduleApiSave() {
+    if (this.apiSaveTimer) clearTimeout(this.apiSaveTimer)
+    this.apiSaveTimer = setTimeout(() => this.performApiSave(), 3_000)
+  }
+
+  private async performApiSave() {
+    if (!this.telegramId) return
+    const snapshot = this.getStateSnapshot()
+    if (this.playerRecordId) {
+      await patchPlayer(this.playerRecordId, { state: snapshot })
+    } else {
+      const record = await createPlayer(this.telegramId, this.playerName, snapshot)
+      if (record) runInAction(() => { this.playerRecordId = record.id })
+    }
+  }
+
+  private loadFromData(data: Record<string, unknown>) {
+    this.coins               = (data.coins as number)              ?? 0
+    this.goldCoins           = (data.goldCoins as number)          ?? 0
+    this.rubles              = (data.rubles as number)             ?? 0
+    this.level               = (data.level as number)              ?? 1
+    this.ownedTrees          = (data.ownedTrees as OwnedTree[])    ?? []
+    this.storageUsed         = (data.storageUsed as number)        ?? 0
+    this.storageCapacity     = (data.storageCapacity as number)    ?? 200
+    this.lastTickTime        = (data.lastTickTime as number)       ?? Date.now()
+    this.treeBoosts          = (data.treeBoosts as ActiveBoost[])  ?? []
+    this.activeWeatherEvent  = (data.activeWeatherEvent as WeatherEvent | null) ?? null
+    this.dailyStreak         = (data.dailyStreak as number)        ?? 0
+    this.lastDailyClaimDate  = (data.lastDailyClaimDate as string) ?? ''
+    this.claimedAchievements = (data.claimedAchievements as string[]) ?? []
+    this.totalHarvested      = (data.totalHarvested as number)     ?? 0
+    this.fertilizerCount     = (data.fertilizerCount as number)    ?? 0
+    this.treeEnhancements    = (data.treeEnhancements as Record<string, number>) ?? {}
+    this.seasonNumber        = (data.seasonNumber as number)       ?? 1
+    this.permanentBonus      = (data.permanentBonus as number)     ?? 0
+    this.applyOfflineEarnings()
   }
 
   load() {
@@ -380,26 +547,43 @@ class GameStore {
         this.coins = 50
         return
       }
-      const data = JSON.parse(raw)
-      this.coins = data.coins ?? 0
-      this.goldCoins = data.goldCoins ?? 0
-      this.rubles = data.rubles ?? 0
-      this.level = data.level ?? 1
-      this.ownedTrees = data.ownedTrees ?? []
-      this.storageUsed = data.storageUsed ?? 0
-      this.storageCapacity = data.storageCapacity ?? 200
-      this.lastTickTime = data.lastTickTime ?? Date.now()
-      this.treeBoosts = data.treeBoosts ?? []
-      this.activeWeatherEvent = data.activeWeatherEvent ?? null
-      this.dailyStreak = data.dailyStreak ?? 0
-      this.lastDailyClaimDate = data.lastDailyClaimDate ?? ''
-      this.claimedAchievements = data.claimedAchievements ?? []
-      this.totalHarvested = data.totalHarvested ?? 0
-      this.applyOfflineEarnings()
+      this.loadFromData(JSON.parse(raw))
     } catch {
       this.addOwnedTree('apple')
       this.coins = 50
     }
+  }
+
+  /**
+   * Вызывается из App.tsx после получения Telegram-пользователя.
+   * Загружает данные из API; если запись новее локальной — заменяет состояние.
+   */
+  async initFromApi(telegramId: number, name: string) {
+    runInAction(() => {
+      this.telegramId = telegramId
+      this.playerName = name
+    })
+
+    const record = await getPlayer(telegramId)
+
+    runInAction(() => {
+      if (record) {
+        this.playerRecordId = record.id
+        const localRaw = localStorage.getItem(SAVE_KEY)
+        const localTime = localRaw ? ((JSON.parse(localRaw).lastTickTime as number) ?? 0) : 0
+        const apiTime   = ((record.state.lastTickTime as number) ?? 0)
+
+        if (apiTime > localTime) {
+          // API-сохранение свежее — загружаем его
+          this.loadFromData(record.state)
+        }
+        // Иначе оставляем локальное и при следующем save() обновим API
+      }
+      this.apiSynced = true
+    })
+
+    // Убеждаемся, что запись в API актуальна
+    this.scheduleApiSave()
   }
 
   // ─── Конвертация ──────────────────────────────────────────────────────────
@@ -440,6 +624,7 @@ class GameStore {
     localStorage.removeItem(SAVE_KEY)
     this.coins = 50
     this.goldCoins = 0
+    this.rubles = 0
     this.level = 1
     this.ownedTrees = []
     this.storageUsed = 0
@@ -451,11 +636,156 @@ class GameStore {
     this.lastDailyClaimDate = ''
     this.claimedAchievements = []
     this.totalHarvested = 0
+    this.fertilizerCount = 0
+    this.treeEnhancements = {}
+    this.seasonNumber = 1
+    this.permanentBonus = 0
     this.addOwnedTree('apple')
   }
 
   get shopTrees() {
     return TREES.filter(t => t.costCurrency !== 'free')
+  }
+
+  // ─── Рынок ─────────────────────────────────────────────────────────────────
+
+  /**
+   * Выставляет деревья на продажу: вычитает из инвентаря, создаёт объявление.
+   * Возвращает null при успехе или строку с ошибкой.
+   */
+  async listForSale(
+    treeId: string,
+    count: number,
+    priceRubles: number,
+  ): Promise<string | null> {
+    if (!this.telegramId) return 'Требуется авторизация через Telegram'
+
+    const tree = getTreeById(treeId)
+    if (!tree) return 'Дерево не найдено'
+
+    const owned = this.ownedTrees.find(t => t.treeId === treeId)
+    if (!owned || owned.count < count) return 'Недостаточно деревьев'
+    if (count <= 0 || priceRubles <= 0) return 'Некорректные значения'
+
+    const enhancement = this.treeEnhancements[treeId] ?? 0
+
+    // Вычитаем из инвентаря
+    runInAction(() => {
+      if (owned.count === count) {
+        this.ownedTrees = this.ownedTrees.filter(t => t.treeId !== treeId)
+      } else {
+        owned.count -= count
+      }
+      this.storageCapacity = Math.max(200, this.storageCapacity - tree.storageCapacity * count)
+      this.saveLocal()
+    })
+
+    const listing = await postListing({
+      sellerId: this.telegramId,
+      sellerName: this.playerName,
+      treeId,
+      treeName: tree.name,
+      treeEmoji: tree.emoji,
+      count,
+      priceRubles,
+      enhancementLevel: enhancement,
+      createdAt: Date.now(),
+    })
+
+    if (!listing) {
+      // Откат: возвращаем деревья
+      runInAction(() => {
+        const ex = this.ownedTrees.find(t => t.treeId === treeId)
+        if (ex) ex.count += count
+        else this.ownedTrees.push({ treeId, count })
+        this.storageCapacity += tree.storageCapacity * count
+        this.saveLocal()
+      })
+      return 'Ошибка сети. Попробуй ещё раз'
+    }
+
+    this.save()
+    return null
+  }
+
+  /**
+   * Покупает объявление с рынка: списывает рубли, добавляет деревья,
+   * зачисляет рубли продавцу и удаляет объявление.
+   * Возвращает null при успехе или строку с ошибкой.
+   */
+  async buyListing(listing: MarketListing): Promise<string | null> {
+    if (!this.telegramId) return 'Требуется авторизация через Telegram'
+    if (listing.sellerId === this.telegramId) return 'Нельзя купить своё объявление'
+    if (this.rubles < listing.priceRubles) return 'Недостаточно рублей'
+
+    const tree = getTreeById(listing.treeId)
+
+    // Оптимистичное обновление
+    runInAction(() => {
+      this.rubles -= listing.priceRubles
+      const ex = this.ownedTrees.find(t => t.treeId === listing.treeId)
+      if (ex) ex.count += listing.count
+      else this.ownedTrees.push({ treeId: listing.treeId, count: listing.count })
+      if (tree) {
+        this.storageCapacity += tree.storageCapacity * listing.count
+        // Применяем уровень удобрений листинга, если он выше
+        if (listing.enhancementLevel > 0) {
+          const cur = this.treeEnhancements[listing.treeId] ?? 0
+          if (listing.enhancementLevel > cur) {
+            this.treeEnhancements = {
+              ...this.treeEnhancements,
+              [listing.treeId]: listing.enhancementLevel,
+            }
+          }
+        }
+      }
+      this.saveLocal()
+    })
+
+    // Удаляем объявление и зачисляем продавцу
+    const [deleted] = await Promise.all([
+      deleteListing(listing.id),
+      creditSellerRubles(listing.sellerId, listing.priceRubles),
+    ])
+
+    if (!deleted) {
+      // Объявление уже недоступно — откат
+      runInAction(() => {
+        this.rubles += listing.priceRubles
+        const ex = this.ownedTrees.find(t => t.treeId === listing.treeId)
+        if (ex) {
+          ex.count -= listing.count
+          if (ex.count <= 0) this.ownedTrees = this.ownedTrees.filter(t => t.treeId !== listing.treeId)
+        }
+        if (tree) this.storageCapacity = Math.max(200, this.storageCapacity - tree.storageCapacity * listing.count)
+        this.saveLocal()
+      })
+      return 'Объявление уже недоступно'
+    }
+
+    await this.performApiSave()
+    return null
+  }
+
+  /**
+   * Отзывает своё объявление с рынка и возвращает деревья в инвентарь.
+   */
+  async cancelListing(listing: MarketListing): Promise<string | null> {
+    if (listing.sellerId !== this.telegramId) return 'Нет доступа'
+
+    const deleted = await deleteListing(listing.id)
+    if (!deleted) return 'Не удалось отозвать объявление'
+
+    const tree = getTreeById(listing.treeId)
+    runInAction(() => {
+      const ex = this.ownedTrees.find(t => t.treeId === listing.treeId)
+      if (ex) ex.count += listing.count
+      else this.ownedTrees.push({ treeId: listing.treeId, count: listing.count })
+      if (tree) this.storageCapacity += tree.storageCapacity * listing.count
+      this.save()
+    })
+
+    return null
   }
 }
 

@@ -1,8 +1,50 @@
 import { observer } from 'mobx-react-lite'
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { gameStore } from '../stores/GameStore'
-import { TREES, RARITY_COLORS, RARITY_LABELS } from '../data/trees'
 import type { Page } from '../App'
+
+// Непрерывный lerp — постоянно догоняет цель без пауз между тиками
+function useAnimatedNumber(target: number) {
+  const [displayed, setDisplayed] = useState(target)
+  const ref = useRef({ cur: target, target })
+  const rafRef = useRef<number>(0)
+  const prevTarget = useRef(target)
+
+  // Обновляем цель; при резком падении (сбор урожая) — мгновенный сброс
+  useEffect(() => {
+    const prev = prevTarget.current
+    prevTarget.current = target
+    if (target < prev * 0.5 && prev - target > 10) {
+      ref.current.cur = target
+      ref.current.target = target
+      setDisplayed(target)
+    } else {
+      ref.current.target = target
+    }
+  }, [target])
+
+  // Один RAF-цикл, живёт на всё время жизни компонента
+  useEffect(() => {
+    let last = performance.now()
+    function tick(now: number) {
+      const dt = Math.min(now - last, 50) // ограничиваем при потере фокуса
+      last = now
+      const { cur, target } = ref.current
+      const diff = target - cur
+      if (Math.abs(diff) > 0.5) {
+        // экспоненциальный lerp с tau=120ms — плавно и без рывков
+        const next = cur + diff * (1 - Math.exp(-dt / 120))
+        ref.current.cur = next
+        setDisplayed(next)
+      }
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, []) // eslint-disable-line
+
+  return displayed
+}
 
 function fmt(n: number): string {
   if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B'
@@ -13,153 +55,49 @@ function fmt(n: number): string {
 
 interface Props { onNavigate: (p: Page) => void }
 
-export const HUD = observer(function HUD({ onNavigate }: Props) {
+export const HUD = observer(function HUD({ onNavigate: _onNavigate }: Props) {
   const harvestBtnRef = useRef<HTMLButtonElement>(null)
-  const [levelModal, setLevelModal] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const animStorageUsed = useAnimatedNumber(gameStore.storageUsed)
 
   function handleHarvest() {
-    const amount = gameStore.harvest()
-    if (amount <= 0) return
+    const result = gameStore.harvest()
+    if (result.amount <= 0) return
     harvestBtnRef.current?.classList.add('pop')
     setTimeout(() => harvestBtnRef.current?.classList.remove('pop'), 250)
-    window.dispatchEvent(new CustomEvent('phaser:harvest', { detail: amount }))
+    window.dispatchEvent(new CustomEvent('phaser:harvest', { detail: result.amount }))
+    if (result.fertilizerDrop) {
+      window.dispatchEvent(new CustomEvent('fertilizer:drop'))
+    }
   }
 
   const pct = gameStore.storagePercent * 100
   const storageColor = pct > 85 ? '#f85149' : pct > 60 ? '#d29922' : '#2ea043'
 
-  // Для модалки уровня
-  const nextLevel = gameStore.level + 1
-  const coinsNeeded = gameStore.level * 1000
-  const coinsProgress = Math.min(gameStore.coins / coinsNeeded, 1)
-  const unlockAtNext = TREES.filter(t => t.unlockLevel === nextLevel)
-
   return (
-    <>
-      <div className="hud">
-        {/* Раскрывающаяся панель статистики */}
-        <div className={`hud-expandable ${expanded ? 'hud-expandable--open' : ''}`}>
-          <div className="hud-expandable-inner">
-            <div className="hud-stats">
-              <div className="hud-stat">
-                <span className="hud-stat-icon">🪙</span>
-                <div>
-                  <div className="hud-stat-label">Монеты</div>
-                  <div className="hud-stat-val">{fmt(gameStore.coins)}</div>
-                </div>
-              </div>
-              <div className="hud-stat">
-                <span className="hud-stat-icon">💎</span>
-                <div>
-                  <div className="hud-stat-label">Алмазы</div>
-                  <div className="hud-stat-val">{fmt(gameStore.goldCoins)}</div>
-                </div>
-              </div>
-              <div className="hud-stat">
-                <span className="hud-stat-icon">📈</span>
-                <div>
-                  <div className="hud-stat-label">Доход/ч</div>
-                  <div className="hud-stat-val">+{fmt(gameStore.totalIncomePerHour)}</div>
-                </div>
-              </div>
-              <button className="hud-level-btn" onClick={() => setLevelModal(true)}>
-                Ур.&nbsp;{gameStore.level}
-              </button>
-            </div>
-
-            <div className="hud-storage">
-              <div className="hud-storage-top">
-                <span className="hud-storage-label">Склад: {fmt(gameStore.storageUsed)} / {fmt(gameStore.storageCapacity)}</span>
-                {gameStore.storageFull && <span className="hud-storage-warn">⚠ Склад полон</span>}
-              </div>
-              <div className="storage-track">
-                <div className="storage-fill" style={{ width: `${pct}%`, backgroundColor: storageColor }} />
-              </div>
-            </div>
-          </div>
+    <div className="hud">
+      <div className="hud-storage">
+        <div className="hud-storage-top">
+          <span className="hud-storage-label">Склад: {fmt(gameStore.storageUsed)} / {fmt(gameStore.storageCapacity)}</span>
+          {gameStore.storageFull && <span className="hud-storage-warn">⚠ Склад полон</span>}
         </div>
-
-        {/* Всегда видимая строка: кнопка урожая + тоггл */}
-        <div className="hud-harvest-row">
-          <button
-            ref={harvestBtnRef}
-            className={`harvest-btn ${gameStore.storageFull ? 'full' : ''}`}
-            onClick={handleHarvest}
-            disabled={!gameStore.canHarvest}
-          >
-            Собрать урожай
-            {gameStore.canHarvest && (
-              <span className="harvest-amount">+{fmt(gameStore.storageUsed)} 🪙</span>
-            )}
-          </button>
-          <button
-            className={`hud-toggle-btn ${expanded ? 'hud-toggle-btn--open' : ''}`}
-            onClick={() => setExpanded(v => !v)}
-            title="Статистика"
-          >
-            📊
-          </button>
+        <div className="storage-track">
+          <div className="storage-fill" style={{ width: `${pct}%`, backgroundColor: storageColor }} />
         </div>
       </div>
 
-      {levelModal && (
-        <div className="modal-overlay" onClick={() => setLevelModal(false)}>
-          <div className="modal-box" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-title">Прогресс уровня</span>
-              <button className="modal-close" onClick={() => setLevelModal(false)}>✕</button>
-            </div>
-
-            <div className="level-progress-row">
-              <span className="level-badge">Ур. {gameStore.level}</span>
-              <div className="level-progress-bar">
-                <div className="level-progress-fill" style={{ width: `${coinsProgress * 100}%` }} />
-              </div>
-              <span className="level-badge">Ур. {nextLevel}</span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#8b949e' }}>
-              {fmt(gameStore.coins)} / {fmt(coinsNeeded)} монет до следующего уровня
-            </div>
-
-            {unlockAtNext.length > 0 && (
-              <div>
-                <div className="modal-section-title">Открывается на уровне {nextLevel}</div>
-                <div className="unlock-list">
-                  {unlockAtNext.map(t => (
-                    <div key={t.id} className="unlock-item">
-                      <span className="unlock-item-icon">{t.emoji}</span>
-                      <div>
-                        <div className="unlock-item-name">{t.name}</div>
-                        <div className="unlock-item-income">+{fmt(t.incomePerHour)}/час</div>
-                      </div>
-                      <span
-                        className="unlock-item-rarity"
-                        style={{ background: RARITY_COLORS[t.rarity] }}
-                      >
-                        {RARITY_LABELS[t.rarity]}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {unlockAtNext.length === 0 && (
-              <div style={{ fontSize: '0.82rem', color: '#484f58' }}>
-                На уровне {nextLevel} новых деревьев не открывается.
-              </div>
-            )}
-
-            <button
-              style={{ background: '#2ea043', border: 'none', borderRadius: 8, padding: '10px', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
-              onClick={() => { setLevelModal(false); onNavigate('shop') }}
-            >
-              Перейти в магазин
-            </button>
-          </div>
-        </div>
-      )}
-    </>
+      <button
+        ref={harvestBtnRef}
+        className={`harvest-btn ${gameStore.storageFull ? 'full' : ''} ${gameStore.isPrecisionZone ? 'precision' : ''}`}
+        onClick={handleHarvest}
+        disabled={!gameStore.canHarvest}
+      >
+        {gameStore.isPrecisionZone ? '⚡ Точный сбор!' : 'Собрать урожай'}
+        {gameStore.canHarvest && (
+          <span className="harvest-amount">
+            +{fmt(gameStore.isPrecisionZone ? Math.floor(animStorageUsed * 1.2) : animStorageUsed)} 🪙
+          </span>
+        )}
+      </button>
+    </div>
   )
 })

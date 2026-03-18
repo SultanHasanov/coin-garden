@@ -6,6 +6,9 @@ export interface AchievementCheck {
   treeBoosts: { treeId: string }[]
   dailyStreak: number
   totalHarvested: number
+  fertilizerCount: number
+  activeSynergiesCount: number
+  seasonNumber: number
 }
 
 export interface Achievement {
@@ -144,5 +147,51 @@ export const ACHIEVEMENTS: Achievement[] = [
     condition: s => s.totalHarvested >= 100,
     rewardCoins: 0,
     rewardDiamonds: 15,
+  },
+  // ── Новые ачивки ──────────────────────────────────────────────────────────
+  {
+    id: 'first_synergy',
+    name: 'Гармония',
+    icon: '🌿',
+    description: 'Активируй первую синергию деревьев',
+    condition: s => s.activeSynergiesCount >= 1,
+    rewardCoins: 5_000,
+    rewardDiamonds: 2,
+  },
+  {
+    id: 'synergies_3',
+    name: 'Симфония сада',
+    icon: '🎵',
+    description: 'Активируй 3 синергии одновременно',
+    condition: s => s.activeSynergiesCount >= 3,
+    rewardCoins: 0,
+    rewardDiamonds: 20,
+  },
+  {
+    id: 'first_fertilizer',
+    name: 'Зелёный палец',
+    icon: '🌱',
+    description: 'Удобри первое дерево',
+    condition: s => s.fertilizerCount >= 0 && s.totalHarvested >= 1,
+    rewardCoins: 3_000,
+    rewardDiamonds: 0,
+  },
+  {
+    id: 'season_2',
+    name: 'Второй сезон',
+    icon: '🌸',
+    description: 'Заверши первый сезон и начни следующий',
+    condition: s => s.seasonNumber >= 2,
+    rewardCoins: 0,
+    rewardDiamonds: 30,
+  },
+  {
+    id: 'season_5',
+    name: 'Ветеран сада',
+    icon: '🏅',
+    description: 'Пройди 5 сезонов',
+    condition: s => s.seasonNumber >= 5,
+    rewardCoins: 0,
+    rewardDiamonds: 100,
   },
 ]
